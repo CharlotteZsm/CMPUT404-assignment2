@@ -41,13 +41,17 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        temp = data.split("\r\n")[0]
+        code = temp.split(" ")[1]
+        return code
 
     def get_headers(self,data):
-        return None
+        header = data.split("\r\n\r\n")[0]
+        return header
 
     def get_body(self, data):
-        return None
+        body = data.split("\r\n\r\n")[1]
+        return body
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -70,11 +74,70 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         code = 500
         body = ""
+
+        #Begin my code with making sure the url is an approprite path
+        if url[-1] != "/":
+            url+="/"
+        parse_url = urllib.parse.urlparse(url)
+        host = parse_url.netloc
+        path = parse_url.path
+
+        temp = host.split(":")
+        if len(temp)==2:
+            host = temp[0]
+            port = int(temp[1])
+        else:
+            host = parse_url.hostname
+            port = 80
+        self.connect(host, port)
+        command = "GET "+path+" HTTP/1.1\r\nHost: "+host+"\r\nConnection: close\r\n\r\n"
+        self.sendall(command)
+
+        response = self.recvall(self.socket)
+        print(response)
+        code = int(self.get_code(response))
+        body = self.get_body(response)
+        self.close()
+
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
         code = 500
         body = ""
+
+        #Begin my code with making sure the url is an approprite path
+        if url[-1] != "/":
+            url+="/"
+        parse_url = urllib.parse.urlparse(url)
+        host = parse_url.netloc
+        path = parse_url.path
+
+        temp = host.split(":")
+        if len(temp)==2:
+            host = temp[0]
+            port = int(temp[1])
+        else:
+            host = parse_url.hostname
+            port = 80
+        
+        content=""
+        if args != None:
+            for key, value in args.items():
+                value = value.replace(" ", "+")
+                content = content + key + "=" + value + "&"
+            content += "\r\n"
+        
+        self.connect(host, port)
+        length = len(content)
+        command = "POST "+path+" HTTP/1.1\r\nHost: "+host+"\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: "+str(length)+"\r\nConnection: close\r\n\r\n"+content
+        self.sendall(command)
+
+        response = self.recvall(self.socket)
+        print(response)
+        code = int(self.get_code(response))
+        body = self.get_body(response)
+        self.close()
+
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
